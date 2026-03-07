@@ -2185,6 +2185,15 @@ void PresetBundle::set_num_filaments(unsigned int n, std::vector<std::string> ne
     }
     ConfigOptionStrings* filament_color = project_config.option<ConfigOptionStrings>("filament_colour");
     filament_color->resize(n);
+
+    ConfigOptionStrings* filament_multi_color = project_config.option<ConfigOptionStrings>("filament_multi_colour");
+    filament_multi_color->values.resize(n);
+    for (size_t i = 0; i < n; i++)
+        filament_multi_color->values[i] = filament_color->values[i];
+
+    ConfigOptionStrings* filament_color_type = project_config.option<ConfigOptionStrings>("filament_colour_type");
+    filament_color_type->resize(n);
+
     ams_multi_color_filment.resize(n);
     // BBS set new filament color to new_color
     if (old_filament_count < n) {

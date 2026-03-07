@@ -256,6 +256,13 @@ int PresetComboBox::update_ams_color()
     auto color_pack = static_cast<ConfigOptionStrings *>(cfg->option("filament_multi_colour")->clone()); // multi color (all colors in all kinds of filament)
     auto color_type = static_cast<ConfigOptionStrings*>(cfg->option("filament_colour_type")->clone()); // color type
 
+    // filament_multi_colour can have fewer elements than filament_colour
+    // when not all init paths resize it to match the extruder count.
+    size_t required = (size_t)(m_filament_idx + 1);
+    if (color_head->values.size() < required) color_head->values.resize(required);
+    if (color_type->values.size() < required) color_type->values.resize(required);
+    if (color_pack->values.size() < required) color_pack->values.resize(required);
+
     color_head->values[m_filament_idx] = color;
     color_type->values[m_filament_idx] = ctype;
     std::string color_str = ""; // Translate multi color info to config storage format
