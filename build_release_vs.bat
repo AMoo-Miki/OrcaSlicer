@@ -131,12 +131,17 @@ echo "building deps.."
 echo on
 REM Set minimum CMake policy to avoid <3.5 errors
 set CMAKE_POLICY_VERSION_MINIMUM=3.5
+@REM "|| goto :failed" on every cmake call: a batch file exits with the status of
+@REM its *last* command, so without these a failed compile is masked by whatever
+@REM runs afterwards and the caller sees success.  Checking %errorlevel% in bulk
+@REM would not work here -- "mkdir" on an existing directory sets it too -- so
+@REM each command that must succeed is tested individually.
 if "%USE_NINJA%"=="1" (
-    cmake ../ -G %CMAKE_GENERATOR% -DCMAKE_BUILD_TYPE=%build_type%
-    cmake --build . --config %build_type% --target deps
+    cmake ../ -G %CMAKE_GENERATOR% -DCMAKE_BUILD_TYPE=%build_type% || goto :failed
+    cmake --build . --config %build_type% --target deps || goto :failed
 ) else (
-    cmake ../ -G %CMAKE_GENERATOR% -A %arch% -DCMAKE_BUILD_TYPE=%build_type%
-    cmake --build . --config %build_type% --target deps -- -m
+    cmake ../ -G %CMAKE_GENERATOR% -A %arch% -DCMAKE_BUILD_TYPE=%build_type% || goto :failed
+    cmake --build . --config %build_type% --target deps -- -m || goto :failed
 )
 @echo off
 
@@ -151,17 +156,19 @@ cd %build_dir%
 echo on
 set CMAKE_POLICY_VERSION_MINIMUM=3.5
 if "%USE_NINJA%"=="1" (
-    cmake .. -G %CMAKE_GENERATOR% -DORCA_TOOLS=ON %SIG_FLAG% -DBUILD_TESTS=%BUILD_TESTS% -DCMAKE_BUILD_TYPE=%build_type%
-    cmake --build . --config %build_type% --target ALL_BUILD
+    cmake .. -G %CMAKE_GENERATOR% -DORCA_TOOLS=ON %SIG_FLAG% -DBUILD_TESTS=%BUILD_TESTS% -DCMAKE_BUILD_TYPE=%build_type% || goto :failed
+    cmake --build . --config %build_type% --target ALL_BUILD || goto :failed
 ) else (
-    cmake .. -G %CMAKE_GENERATOR% -A %arch% -DORCA_TOOLS=ON %SIG_FLAG% -DBUILD_TESTS=%BUILD_TESTS% -DCMAKE_BUILD_TYPE=%build_type%
-    cmake --build . --config %build_type% --target ALL_BUILD -- -m
+    cmake .. -G %CMAKE_GENERATOR% -A %arch% -DORCA_TOOLS=ON %SIG_FLAG% -DBUILD_TESTS=%BUILD_TESTS% -DCMAKE_BUILD_TYPE=%build_type% || goto :failed
+    cmake --build . --config %build_type% --target ALL_BUILD -- -m || goto :failed
 )
 @echo off
 cd ..
+@REM Not fatal on purpose: regenerating the catalogs is independent of whether
+@REM the binaries are correct, and a gettext hiccup should not fail a build.
 call scripts/run_gettext.bat
 cd %build_dir%
-cmake --build . --target install --config %build_type%
+cmake --build . --target install --config %build_type% || goto :failed
 
 :done
 @echo off
@@ -175,3 +182,13 @@ set /a "_mins=_remainder / 60"
 set /a "_secs=_remainder - _mins * 60"
 echo.
 echo Build completed in %_hours%h %_mins%m %_secs%s
+exit /b 0
+
+:failed
+@REM Capture the status before anything else -- "echo" and friends reset it.
+set "_rc=%errorlevel%"
+@echo off
+if "%_rc%"=="0" set "_rc=1"
+echo.
+echo Build FAILED with exit code %_rc%
+exit /b %_rc%
